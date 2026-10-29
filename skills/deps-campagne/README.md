@@ -82,7 +82,7 @@ The keys are in French, like the engine.
 | `pr` | `base` (default `main`) and `titre` (default `chore(deps): campagne du`). The title is also how the previous campaign is found. |
 | `fichierDependances` | Default `DEPENDENCIES.md`. |
 
-If the config is missing or invalid, the engine refuses to start and says which key to fix.
+If the config is missing or invalid, or contains an unknown key (a typo would silently disable a check), the engine refuses to start and says which key to fix. It also refuses if the dependencies file is missing.
 
 ## What it does not do
 

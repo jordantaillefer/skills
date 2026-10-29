@@ -17,7 +17,7 @@ export function verifierRacine(dossier) {
  *    un ERR_MODULE_NOT_FOUND illisible. On le teste ici, avant tout import du moteur.
  * 2. la racine. Le moteur travaille dans le répertoire courant : lancé depuis un sous-dossier,
  *    `pnpm outdated -r` et `git add` verraient un autre périmètre que celui de la config.
- * 3. la config.
+ * 3. la config, puis le fichier de suivi des dépendances qu'elle désigne.
  *
  * Lève une Error au message actionnable dès que l'un échoue.
  */
@@ -35,5 +35,14 @@ export async function preparer({ racine = process.cwd() } = {}) {
     )
   }
 
-  return chargerConfig(racine)
+  const config = chargerConfig(racine)
+
+  // Le moteur y lit la section « Dépendances hors registre » avant tout bump : sans le
+  // fichier, il échouerait sur un ENOENT qui ne dit pas quoi faire.
+  if (!existsSync(join(racine, config.fichierDependances))) {
+    throw new Error(
+      `${config.fichierDependances} introuvable dans ${racine}. Pars de DEPENDENCIES.example.md, dans le dossier du skill, ou indique ton fichier dans \`fichierDependances\` de la config.`,
+    )
+  }
+  return config
 }

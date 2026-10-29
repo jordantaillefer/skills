@@ -24,12 +24,32 @@ const estTexte = (v) => typeof v === 'string' && v.length > 0
 const estArgv = (v) => Array.isArray(v) && v.length > 0 && v.every(estTexte)
 
 /**
+ * Une clé inconnue est presque toujours une faute de frappe (`prealable`, `groupesCouple`) :
+ * l'ignorer désactiverait en silence la vérification qu'elle devait configurer.
+ */
+function clesInconnues(objet, connues, chemin) {
+  return Object.keys(objet)
+    .filter((cle) => !connues.includes(cle))
+    .map(
+      (cle) =>
+        `${chemin ? `${chemin}.` : ''}${cle} : clé inconnue (clés possibles : ${connues.join(', ')})`,
+    )
+}
+
+/**
  * Valide à la main, sans bibliothèque : le moteur n'a pas d'autre dépendance que semver.
  * Rend la liste des erreurs, chacune préfixée par le chemin de la clé fautive. Vide = valide.
  */
 export function validerConfig(objet) {
   const erreurs = []
   if (!estObjet(objet)) return ['la config doit être un objet JSON']
+  erreurs.push(
+    ...clesInconnues(
+      objet,
+      ['workspaces', 'prealables', 'groupesCouples', 'cheminsCommit', 'pr', 'fichierDependances'],
+      '',
+    ),
+  )
 
   if (!Array.isArray(objet.workspaces) || objet.workspaces.length === 0) {
     erreurs.push('workspaces : obligatoire, une liste non vide de { paquet }')
@@ -58,6 +78,7 @@ export function validerConfig(objet) {
   if (objet.pr !== undefined) {
     if (!estObjet(objet.pr)) erreurs.push('pr : doit être un objet { base, titre }')
     else {
+      erreurs.push(...clesInconnues(objet.pr, ['base', 'titre'], 'pr'))
       if (objet.pr.base !== undefined && !estTexte(objet.pr.base))
         erreurs.push('pr.base : doit être un nom de branche')
       if (objet.pr.titre !== undefined && !estTexte(objet.pr.titre))
@@ -75,13 +96,16 @@ export function validerConfig(objet) {
 function validerWorkspace(ws, chemin) {
   if (!estObjet(ws))
     return [`${chemin} : doit être un objet { paquet, typage?, lint?, test?, env? }`]
-  const erreurs = []
+  const erreurs = clesInconnues(ws, ['paquet', 'typage', 'lint', 'test', 'env'], chemin)
   if (!estTexte(ws.paquet)) erreurs.push(`${chemin}.paquet : obligatoire, le nom du paquet`)
 
   if (ws.typage !== undefined) {
     if (!estObjet(ws.typage))
       erreurs.push(`${chemin}.typage : doit être un objet { prepare?, purger?, commande? }`)
     else {
+      erreurs.push(
+        ...clesInconnues(ws.typage, ['prepare', 'purger', 'commande'], `${chemin}.typage`),
+      )
       if (ws.typage.prepare !== undefined && !estArgv(ws.typage.prepare)) {
         erreurs.push(
           `${chemin}.typage.prepare : doit être un argv, par exemple ["prisma", "generate"]`,
@@ -118,7 +142,7 @@ function validerWorkspace(ws, chemin) {
 
 function validerPrealable(p, chemin) {
   if (!estObjet(p)) return [`${chemin} : doit être un objet { nom, hote, port, pourquoi }`]
-  const erreurs = []
+  const erreurs = clesInconnues(p, ['nom', 'hote', 'port', 'pourquoi'], chemin)
   for (const cle of ['nom', 'hote', 'pourquoi']) {
     if (!estTexte(p[cle])) erreurs.push(`${chemin}.${cle} : obligatoire, un texte`)
   }
@@ -130,7 +154,7 @@ function validerPrealable(p, chemin) {
 
 function validerGroupe(g, chemin) {
   if (!estObjet(g)) return [`${chemin} : doit être un objet { nom, prefixe? , paquets? }`]
-  const erreurs = []
+  const erreurs = clesInconnues(g, ['nom', 'prefixe', 'paquets'], chemin)
   if (!estTexte(g.nom)) erreurs.push(`${chemin}.nom : obligatoire, un texte`)
   if (g.prefixe !== undefined && !estTexte(g.prefixe))
     erreurs.push(`${chemin}.prefixe : doit être un texte`)
@@ -158,7 +182,9 @@ export function chargerConfig(racine) {
   try {
     objet = JSON.parse(readFileSync(fichier, 'utf8'))
   } catch (erreur) {
-    throw new Error(`${NOM_CONFIG} : JSON illisible (${erreur.message}).`)
+    throw new Error(
+      `${NOM_CONFIG} : JSON illisible (${erreur.message}). Corrige la syntaxe à cet endroit : une virgule en trop avant } ou ], une clé sans guillemets doubles… Le JSON n'accepte pas les commentaires : les explications des clés sont dans le README du skill.`,
+    )
   }
 
   const erreurs = validerConfig(objet)

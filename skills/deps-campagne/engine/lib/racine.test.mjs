@@ -43,6 +43,21 @@ test('preparer rend la config quand tout est en place', async () => {
     join(dossier, 'deps-campagne.config.json'),
     JSON.stringify({ workspaces: [{ paquet: '@exemple/api' }] }),
   )
+  writeFileSync(join(dossier, 'DEPENDENCIES.md'), '# Dépendances\n')
   const config = await preparer({ racine: dossier })
   assert.equal(config.workspaces[0].paquet, '@exemple/api')
+})
+
+test('preparer sans fichier de dépendances', async () => {
+  const dossier = dossierVide()
+  writeFileSync(join(dossier, 'pnpm-workspace.yaml'), 'packages: []\n')
+  writeFileSync(join(dossier, 'pnpm-lock.yaml'), '')
+  writeFileSync(
+    join(dossier, 'deps-campagne.config.json'),
+    JSON.stringify({ workspaces: [{ paquet: '@exemple/api' }] }),
+  )
+  await assert.rejects(
+    () => preparer({ racine: dossier }),
+    (e) => e.message.includes('DEPENDENCIES.md') && e.message.includes('DEPENDENCIES.example.md'),
+  )
 })

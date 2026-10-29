@@ -78,7 +78,7 @@ Puis, dans Claude Code : `/deps-campagne`.
 | `pr` | `base` (par défaut `main`) et `titre` (par défaut `chore(deps): campagne du`). Le titre sert aussi à retrouver la campagne précédente. |
 | `fichierDependances` | Par défaut `DEPENDENCIES.md`. |
 
-Si la config est absente ou invalide, le moteur refuse de démarrer et dit quelle clé corriger.
+Si la config est absente ou invalide, ou si elle contient une clé inconnue (une faute de frappe désactiverait une vérification sans prévenir), le moteur refuse de démarrer et dit quelle clé corriger. Il refuse aussi si le fichier de dépendances est absent.
 
 ## Ce qu'il ne fait pas
 

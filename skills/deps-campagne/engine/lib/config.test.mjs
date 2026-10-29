@@ -141,3 +141,52 @@ test('cheminsCommit déclaré mais absent : refus', () => {
     (e) => e.message.startsWith('deps-campagne.config.json :') && e.message.includes('services'),
   )
 })
+
+test('une clé inconnue est refusée, avec les clés possibles', () => {
+  // Une faute de frappe (`prealable`) désactiverait la vérification sans prévenir.
+  const erreurs = validerConfig({ workspaces: [{ paquet: '@exemple/api' }], prealable: [] })
+  assert.ok(
+    erreurs.some(
+      (e) => e.includes('prealable') && e.includes('inconnue') && e.includes('prealables'),
+    ),
+    erreurs.join('\n'),
+  )
+})
+
+test('une clé inconnue dans un workspace est refusée', () => {
+  const erreurs = validerConfig({ workspaces: [{ paquet: '@exemple/api', tests: ['x'] }] })
+  assert.ok(
+    erreurs.some((e) => e.includes('workspaces[0].tests')),
+    erreurs.join('\n'),
+  )
+})
+
+test('une clé inconnue dans typage, un préalable, un groupe ou pr est refusée', () => {
+  const erreurs = validerConfig({
+    workspaces: [{ paquet: '@exemple/api', typage: { purge: 'x' } }],
+    prealables: [{ nom: 'b', hote: 'h', port: 1, pourquoi: 'p', host: 'h' }],
+    groupesCouples: [{ nom: 'g', prefix: '@g/', paquets: ['a'] }],
+    pr: { branche: 'main' },
+  })
+  for (const chemin of [
+    'workspaces[0].typage.purge',
+    'prealables[0].host',
+    'groupesCouples[0].prefix',
+    'pr.branche',
+  ]) {
+    assert.ok(
+      erreurs.some((e) => e.includes(chemin)),
+      `${chemin} absent de :\n${erreurs.join('\n')}`,
+    )
+  }
+})
+
+test('JSON illisible : le message dit quoi faire', () => {
+  assert.throws(
+    () => chargerConfig(dossierAvec('{ "workspaces": [], }')),
+    (e) =>
+      e.message.includes('JSON') &&
+      e.message.includes('commentaires') &&
+      e.message.includes('virgule'),
+  )
+})
