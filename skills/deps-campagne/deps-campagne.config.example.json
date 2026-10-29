@@ -1,0 +1,38 @@
+{
+  "workspaces": [
+    {
+      "paquet": "@exemple/api",
+      "typage": {
+        "prepare": ["prisma", "generate"],
+        "purger": "tsconfig.tsbuildinfo",
+        "commande": ["tsc", "--noEmit"]
+      },
+      "lint": ["pnpm", "-F", "@exemple/api", "run", "lint"],
+      "test": ["pnpm", "-F", "@exemple/api", "run", "test"],
+      "env": {
+        "API_URL": "http://localhost:3000",
+        "LOG_LEVEL": "silent"
+      }
+    },
+    {
+      "paquet": "@exemple/web",
+      "typage": {},
+      "lint": ["pnpm", "-F", "@exemple/web", "run", "lint"]
+    },
+    {
+      "paquet": "@exemple/shared",
+      "test": ["pnpm", "-F", "@exemple/shared", "run", "test"]
+    }
+  ],
+  "prealables": [
+    {
+      "nom": "base de dev",
+      "hote": "127.0.0.1",
+      "port": 5432,
+      "pourquoi": "prisma generate en a besoin pour typer @exemple/api"
+    }
+  ],
+  "groupesCouples": [{ "nom": "tiptap", "prefixe": "@tiptap/" }],
+  "pr": { "base": "main", "titre": "chore(deps): campagne du" },
+  "fichierDependances": "DEPENDENCIES.md"
+}

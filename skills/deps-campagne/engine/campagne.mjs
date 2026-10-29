@@ -1,0 +1,334 @@
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { run } from './lib/shell.mjs'
+import { interpreterOutdated, grouperCouples } from './lib/outdated.mjs'
+import { verdictOverride, nomPaquetDepuisCle, versionsResoluesDepuisWhy } from './lib/overrides.mjs'
+import {
+  creerReport,
+  ajouterCommit,
+  ajouterVerdictOverride,
+  serialiser,
+  resumerAudit,
+} from './lib/report.mjs'
+import { oracleRapide, oracleComplet, installer, filtresCampagne } from './lib/oracle.mjs'
+import { verifierPrealables as verifierServices } from './lib/prealables.mjs'
+import {
+  findOutsideRegistryDeps,
+  readDocumentedPackages,
+  getOutsideRegistryVerdicts,
+} from './lib/horsRegistre.mjs'
+
+const DOSSIER_SORTIE = '.deps-campagne'
+
+// Résolu depuis le moteur : le skill peut être installé n'importe où dans le projet.
+const VERIFIER_QUARANTAINE = fileURLToPath(new URL('./verifier-quarantaine.mjs', import.meta.url))
+
+function aujourdhui() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function journal(message) {
+  console.log(`[campagne] ${message}`)
+}
+
+function lireOutdated(config) {
+  // interpreterOutdated lève si pnpm a échoué, au lieu de rendre [] — un « rien de périmé »
+  // silencieux produirait une campagne vide en se croyant à jour.
+  return interpreterOutdated(
+    run(['pnpm', 'outdated', '-r', ...filtresCampagne(config), '--format', 'json']),
+  )
+}
+
+/** Lève si une commande a échoué. À utiliser dès qu'un échec fausserait le rapport. */
+function exigerSucces(resultat, quoi) {
+  if (resultat.code !== 0) {
+    const detail = (resultat.stderr || resultat.stdout || '')
+      .trim()
+      .split('\n')
+      .slice(-3)
+      .join('\n')
+    throw new Error(`${quoi} a échoué (code ${resultat.code}) :\n${detail}`)
+  }
+  return resultat
+}
+
+/** Y a-t-il quelque chose à commiter ? Seul git le sait vraiment. */
+function ilYADesChangements() {
+  return run(['git', 'status', '--porcelain']).stdout.trim().length > 0
+}
+
+async function verifierPrealables(config) {
+  const { stdout } = run(['git', 'status', '--porcelain'])
+  if (stdout.trim()) {
+    throw new Error('working tree sale — commite ou stash avant de lancer la campagne')
+  }
+  // Sans ses services (une base, un registre local…), chaque commit serait rouge pour une
+  // raison qui n'a rien à voir avec les dépendances.
+  const injoignables = await verifierServices(config.prealables)
+  if (injoignables.length > 0) throw new Error(injoignables.join('\n'))
+}
+
+/**
+ * Commite et rend le SHA produit.
+ *
+ * Exiger le succès de `git commit` est indispensable : sans ça, un commit refusé (rien à
+ * commiter, hook, conflit) laisserait `rev-parse HEAD` rendre le SHA PRÉCÉDENT, et le
+ * rapport attribuerait les changements au mauvais commit. Toute l'attribution par commit
+ * atomique — la raison d'être du découpage — reposerait sur un mensonge.
+ */
+function commiter(config, message) {
+  exigerSucces(run(['git', 'add', ...config.cheminsCommit]), 'git add')
+  exigerSucces(run(['git', 'commit', '-m', message, '--no-verify']), 'git commit')
+  return exigerSucces(run(['git', 'rev-parse', '--short', 'HEAD']), 'git rev-parse').stdout.trim()
+}
+
+/**
+ * Une dépendance hors registre échappe à `outdated`, à `audit` et à la quarantaine : la
+ * campagne ne peut rien en dire. On refuse de démarrer tant que l'une d'elles n'est pas
+ * documentée, sans quoi elle resterait figée en silence, campagne après campagne.
+ */
+function verifierHorsRegistre(config) {
+  const chemins = exigerSucces(
+    run(['git', 'ls-files', '--', 'package.json', '*/package.json']),
+    'git ls-files',
+  )
+    .stdout.trim()
+    .split('\n')
+    .filter(Boolean)
+  const manifestes = chemins.map((chemin) => ({
+    chemin,
+    contenu: JSON.parse(readFileSync(chemin, 'utf8')),
+  }))
+  const verdicts = getOutsideRegistryVerdicts(
+    findOutsideRegistryDeps(manifestes),
+    readDocumentedPackages(readFileSync(config.fichierDependances, 'utf8')),
+  )
+  const orphelines = verdicts.filter((v) => !v.documente)
+  if (orphelines.length > 0) {
+    throw new Error(
+      'dépendances hors registre sans ligne dans la section « Dépendances hors registre » de ' +
+        `${config.fichierDependances} :\n` +
+        orphelines
+          .map((v) => `  ${v.paquet} (${v.manifeste}, ${v.champ}) : ${v.specifier}`)
+          .join('\n'),
+    )
+  }
+  return verdicts
+}
+
+/** Oracle complet seulement si le rapide passe : inutile de tester ce qui ne compile pas. */
+function evaluer(config) {
+  const rapide = oracleRapide(config)
+  if (!rapide.ok) return { rapide: false, complet: null, echecs: rapide.echecs }
+  const complet = oracleComplet(config)
+  return { rapide: true, complet: complet.ok, echecs: complet.echecs }
+}
+
+function versionsResoluesDe(cle) {
+  const nom = nomPaquetDepuisCle(cle)
+  const { stdout } = run(['pnpm', 'why', nom, '-r', '--json', '--depth', 'Infinity'])
+  if (!stdout.trim()) return []
+  try {
+    return versionsResoluesDepuisWhy(JSON.parse(stdout), nom)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Retire chaque override un par un, réinstalle, et observe à quelle version le paquet se
+ * résout tout seul. C'est LE test : un override qui ne change plus rien à la résolution
+ * est inerte. Le banc d'essai observe, il ne décide pas — package.json est toujours restauré.
+ *
+ * Monorepo-wide par nature : les overrides vivent à la racine et s'appliquent à tous les
+ * workspaces.
+ */
+function bancEssaiOverrides(config) {
+  const pkgRacine = JSON.parse(readFileSync('package.json', 'utf8'))
+  const overrides = pkgRacine.pnpm?.overrides ?? {}
+  const verdicts = []
+
+  for (const [cle, range] of Object.entries(overrides)) {
+    journal(`banc d'essai : ${cle}`)
+
+    const sansCelui = { ...overrides }
+    delete sansCelui[cle]
+    writeFileSync(
+      'package.json',
+      JSON.stringify({ ...pkgRacine, pnpm: { ...pkgRacine.pnpm, overrides: sansCelui } }, null, 2) +
+        '\n',
+    )
+    installer()
+
+    // `pnpm install` seul NE RE-RÉSOUT PAS : il garde la version du lockfile tant qu'elle
+    // satisfait les ranges des parents. Ça masque tout plafond : retirer un "<X" puis installer
+    // laisse la version d'avant (verdict « inerte », faux) ; forcer la re-résolution la fait
+    // monter au-delà de X (verdict « porteur », vrai).
+    // Les planchers, eux, provoquent une chute visible dès l'install — mais on force
+    // partout, pour poser la même question à tout le monde.
+    run(['pnpm', 'update', nomPaquetDepuisCle(cle), '-r', '--depth', 'Infinity'])
+
+    const verdict = verdictOverride({ cle, range, versionsResolues: versionsResoluesDe(cle) })
+    verdicts.push(verdict)
+    journal(`  -> ${verdict.porteur ? 'PORTEUR' : 'inerte'} : ${verdict.preuve}`)
+
+    // Restaurer TOUT, pas seulement la racine : `pnpm update -r` réécrit aussi les ranges
+    // déclarés dans les workspaces (un `^3.2.0` devient `^3.4.1` dans chaque package.json
+    // qui le déclare). Le banc observe, il ne décide pas.
+    // Un échec ici laisserait l'override retiré : il fausserait les verdicts suivants, et
+    // finirait commité. On s'arrête plutôt.
+    exigerSucces(
+      run(['git', 'checkout', '--', ...config.cheminsCommit]),
+      "git checkout (banc d'essai)",
+    )
+  }
+
+  installer()
+  return verdicts
+}
+
+/** Après `pnpm update`, on OBSERVE ce qui a bougé — on ne le prédit pas via `wanted`. */
+function diffInRange(avant, apres) {
+  return avant
+    .map((a) => {
+      const encore = apres.find((b) => b.name === a.name)
+      // Sorti de outdated => la dep a atteint latest.
+      if (!encore) return { name: a.name, de: a.current, vers: a.latest }
+      // Toujours outdated mais current a changé => elle a monté dans son range, sans atteindre latest.
+      if (encore.current !== a.current) return { name: a.name, de: a.current, vers: encore.current }
+      return null
+    })
+    .filter(Boolean)
+}
+
+/**
+ * Les paquets d'un groupe couplé ne vont pas forcément à la même version : typescript monte
+ * en 7.1.0 pendant qu'oxlint-tsgolint monte en 7.1.2000. Annoncer « typescript -> 7.1.2000 »
+ * serait faux.
+ */
+function libelleCible(groupe) {
+  const versions = [...new Set(groupe.deps.map((d) => d.latest))]
+  if (versions.length === 1) return `-> ${versions[0]}`
+  return `(${groupe.deps.map((d) => `${d.name}@${d.latest}`).join(', ')})`
+}
+
+/**
+ * Un `pnpm add` qui échoue (conflit de peers, résolution impossible) doit arrêter la
+ * campagne, pas la laisser commiter un état partiel : l'oracle jugerait alors autre chose
+ * que ce que le rapport annonce, et le verdict serait faux sans que rien ne le signale.
+ */
+function appliquerGroupe(groupe) {
+  for (const dep of groupe.deps) {
+    for (const dependent of dep.dependents) {
+      const argv = ['pnpm', '-F', dependent, 'add']
+      if (dep.estDevDependency) argv.push('-D')
+      argv.push(`${dep.name}@${dep.latest}`)
+      exigerSucces(run(argv), `pnpm add ${dep.name}@${dep.latest} sur ${dependent}`)
+    }
+  }
+}
+
+/** La campagne. Lancée par run.mjs, une fois semver, la racine et la config vérifiés. */
+export async function main(config) {
+  await verifierPrealables(config)
+  const horsRegistre = verifierHorsRegistre(config)
+  for (const dep of horsRegistre) {
+    journal(
+      `hors registre : ${dep.paquet} (${dep.manifeste}) — invisible pour outdated, audit et quarantaine`,
+    )
+  }
+
+  // Les exclusions de quarantaine sont des trous volontaires dans la mitigation
+  // supply-chain. Des exclusions échues restent en place tant que rien ne les regarde :
+  // on les regarde d'abord, et on ne bloque pas dessus —
+  // c'est un constat à porter au rapport, pas une raison de ne pas bumper.
+  const quarantaine = run(['node', VERIFIER_QUARANTAINE])
+  for (const ligne of quarantaine.stdout.trim().split('\n').filter(Boolean)) {
+    journal(`quarantaine : ${ligne}`)
+  }
+
+  const date = aujourdhui()
+  const depart = lireOutdated(config)
+  const audit = run(['pnpm', 'audit', '--json'])
+  journal(
+    `départ : ${depart.length} deps périmées, ${depart.filter((d) => d.isMajor).length} majors`,
+  )
+
+  const resumeAudit = resumerAudit(audit.stdout)
+  journal(
+    `  audit : ${resumeAudit.total} vulnérabilités (${JSON.stringify(resumeAudit.parSeverite)})`,
+  )
+
+  let report = creerReport({
+    date,
+    snapshot: {
+      outdated: depart.length,
+      majors: depart.filter((d) => d.isMajor).length,
+      audit: resumeAudit,
+    },
+    horsRegistre,
+  })
+
+  run(['git', 'checkout', '-b', `deps/campagne-${date}`])
+
+  // --- Lot in-range : on fait, puis on observe.
+  journal('lot in-range : pnpm update')
+  const avant = lireOutdated(config)
+  exigerSucces(run(['pnpm', 'update', '-r', ...filtresCampagne(config)]), 'pnpm update')
+  const apres = lireOutdated(config)
+  const bouges = diffInRange(avant, apres)
+
+  // C'est git qui décide s'il y a matière à commiter, pas diffInRange : `pnpm update`
+  // peut ne rafraîchir que des transitives dans le lockfile, sans qu'aucune entrée
+  // `outdated` ne bouge. Sans ce garde, ces changements fuiraient dans le commit du
+  // groupe suivant et lui seraient attribués à tort — or l'attribution par commit est
+  // toute la raison d'être du découpage atomique.
+  if (ilYADesChangements()) {
+    const sha = commiter(config, `chore(deps): bumps in-range (${bouges.length} paquets)`)
+    journal(`  ${bouges.length} paquets bougés, commit ${sha}`)
+    if (bouges.length === 0) {
+      journal('  (aucune dep directe bougée : ce commit ne contient que du refresh de transitives)')
+    }
+    report = ajouterCommit(report, {
+      sha,
+      libelle: bouges.length > 0 ? 'bumps in-range' : 'refresh de transitives (lockfile seul)',
+      categorie: 'in-range',
+      deps: bouges,
+      oracle: evaluer(config),
+    })
+  } else {
+    journal('  rien à bumper dans les ranges')
+  }
+
+  // --- Ce qui reste : pins et majors, groupés par couplage.
+  for (const groupe of grouperCouples(apres, config.groupesCouples)) {
+    const categorie = groupe.deps.some((d) => d.isMajor) ? 'major' : 'pin-minor'
+    const cible = libelleCible(groupe)
+    journal(`${categorie} : ${groupe.nom} ${cible}`)
+
+    appliquerGroupe(groupe)
+
+    if (!ilYADesChangements()) {
+      journal(`  rien n'a bougé — groupe ignoré (déjà à la version cible ?)`)
+      continue
+    }
+
+    const sha = commiter(config, `chore(deps): ${groupe.nom} ${cible} [${categorie}]`)
+    report = ajouterCommit(report, {
+      sha,
+      libelle: `${groupe.nom} (${groupe.deps.map((d) => `${d.name}@${d.latest}`).join(' ')})`,
+      categorie,
+      deps: groupe.deps.map((d) => ({ name: d.name, de: d.current, vers: d.latest })),
+      oracle: evaluer(config),
+    })
+  }
+
+  // --- Banc d'essai des overrides, monorepo-wide.
+  for (const verdict of bancEssaiOverrides(config)) {
+    report = ajouterVerdictOverride(report, verdict)
+  }
+
+  mkdirSync(DOSSIER_SORTIE, { recursive: true })
+  writeFileSync(`${DOSSIER_SORTIE}/report.json`, serialiser(report))
+  journal(`report écrit dans ${DOSSIER_SORTIE}/report.json`)
+}
