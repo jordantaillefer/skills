@@ -14,7 +14,7 @@ You run **several Claude Code sessions in parallel**, each in its own worktree, 
 
 1. It lists the processes started from **the current workplace** (the repository or worktree), identified by their working directory, not by their name or port. It excludes nested worktrees, Claude tooling, terminals and applications.
 2. It stops the listening servers **and their launchers** (a `tsx watch` or `nodemon` left alive would restart the child), then checks that nothing is left.
-3. It notifies the receiving session (`SendMessage`): the freed ports, what stays up and shared (a database, a proxy), and whether the default branch has just moved.
+3. It notifies the receiving agent, Claude Code or Codex, through [`messaging-ai-agents`](../messaging-ai-agents): the freed ports, what stays up and shared (a database, a proxy), and whether the default branch has just moved.
 
 ## When to use it
 
@@ -28,7 +28,7 @@ npx skills add jordantaillefer/skills --skill handing-off-dev-servers
 
 The listing script lives in `scripts/list-own-servers.sh`. You can also run it on its own, from a repository: it is read-only.
 
-**macOS only**: the script targets the bash 3.2 that ships with macOS and relies on `lsof` and `ps`. You also need a Claude Code version that provides `ListAgents` and `SendMessage`.
+**macOS only**: the script targets the bash 3.2 that ships with macOS and relies on `lsof` and `ps`. Sending goes through the [`messaging-ai-agents`](../messaging-ai-agents) skill: install it too.
 
 ## What it does not do
 

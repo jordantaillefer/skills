@@ -9,7 +9,8 @@ Des skills Claude Code que j'utilise au quotidien en mission. Ce ne sont pas des
 | [`deps-campagne`](skills/deps-campagne) | Une campagne d'upgrade des dépendances qui remplace Dependabot : un commit par bump, un oracle après chacun, un agent par major, les hypothèses séparées de ce qui est prouvé, et une seule PR à lire. Monorepo pnpm + TypeScript. |
 | [`daily`](skills/daily) | Le bilan de tes commits et de tes PR sur une période, regroupés par thème, pour le daily standup. |
 | [`monthly`](skills/monthly) | Un mois de travail réécrit en fonctionnalités et en impacts métier, prêt pour une slide de reporting. |
-| [`handing-off-dev-servers`](skills/handing-off-dev-servers) | Passe la main des serveurs de dev d'une session Claude Code à une autre, sur les mêmes ports, sans couper ceux des autres. macOS. |
+| [`handing-off-dev-servers`](skills/handing-off-dev-servers) | Passe la main des serveurs de dev à un autre agent (session Claude Code ou Codex), sur les mêmes ports, sans couper ceux des autres. macOS. |
+| [`messaging-ai-agents`](skills/messaging-ai-agents) | Transmet un message ou un travail à une autre session Claude Code ou Codex et en rapporte la réponse : tu ne fais plus le facteur entre tes agents. |
 
 ## Installation
 
