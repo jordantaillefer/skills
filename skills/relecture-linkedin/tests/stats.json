@@ -1,0 +1,61 @@
+{
+  "note": "Historique inventé pour les scénarios de test. Date de référence : 2026-11-01.",
+  "posts": [
+    {
+      "titre": "Un raccourci clavier pour relancer le dernier test en échec",
+      "date": "2026-02-17",
+      "impressions": 3900,
+      "format": "astuce",
+      "artefact": true
+    },
+    {
+      "titre": "Les captures d'écran des tests visuels, directement dans la revue de code",
+      "date": "2026-06-09",
+      "impressions": 2100,
+      "format": "astuce",
+      "artefact": true
+    },
+    {
+      "titre": "Migrer 300 composants vers un nouveau design system : le bilan",
+      "date": "2026-03-12",
+      "impressions": 1750,
+      "format": "chiffres",
+      "artefact": true
+    },
+    {
+      "titre": "Deux gestionnaires de paquets comparés sur un même monorepo",
+      "date": "2026-07-21",
+      "impressions": 1180,
+      "format": "comparatif",
+      "artefact": true
+    },
+    {
+      "titre": "Réflexion : la productivité n'est pas une question d'outils",
+      "date": "2026-05-27",
+      "impressions": 410,
+      "format": "réflexion",
+      "artefact": false
+    },
+    {
+      "titre": "Réflexion : écrire du code pour celui qui le relira",
+      "date": "2025-12-02",
+      "impressions": 560,
+      "format": "réflexion",
+      "artefact": false
+    },
+    {
+      "titre": "Question : combien de réunions par semaine est-ce raisonnable ?",
+      "date": "2026-08-04",
+      "impressions": 230,
+      "format": "question",
+      "artefact": false
+    },
+    {
+      "titre": "Un thème de terminal fait maison",
+      "date": "2026-09-15",
+      "impressions": 290,
+      "format": "astuce",
+      "artefact": true
+    }
+  ]
+}

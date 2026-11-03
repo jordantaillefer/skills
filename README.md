@@ -10,6 +10,7 @@ Claude Code skills I use every day on client work. They are not demos: each one 
 | [`daily`](skills/daily) | A summary of your commits and PRs over a period, grouped by theme, for the daily standup. |
 | [`monthly`](skills/monthly) | A month of work rewritten as business features and impacts, ready for a reporting slide. |
 | [`handing-off-dev-servers`](skills/handing-off-dev-servers) | Hands dev servers over from one Claude Code session to another, on the same ports, without killing anyone else's. macOS. |
+| [`relecture-linkedin`](skills/relecture-linkedin) | A strict editor for LinkedIn drafts in Gecko Social: a fresh reviewer quotes every weak sentence, compares the post with your real history, and loops until the post is worth publishing. |
 
 ## Installation
 

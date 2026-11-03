@@ -10,6 +10,7 @@ Des skills Claude Code que j'utilise au quotidien en mission. Ce ne sont pas des
 | [`daily`](skills/daily) | Le bilan de tes commits et de tes PR sur une période, regroupés par thème, pour le daily standup. |
 | [`monthly`](skills/monthly) | Un mois de travail réécrit en fonctionnalités et en impacts métier, prêt pour une slide de reporting. |
 | [`handing-off-dev-servers`](skills/handing-off-dev-servers) | Passe la main des serveurs de dev d'une session Claude Code à une autre, sur les mêmes ports, sans couper ceux des autres. macOS. |
+| [`relecture-linkedin`](skills/relecture-linkedin) | Un éditeur intraitable pour les brouillons LinkedIn dans Gecko Social : un relecteur neuf cite chaque phrase faible, compare le post à ton vrai historique, et boucle jusqu'à ce que le post vaille la peine d'être publié. |
 
 ## Installation
 
