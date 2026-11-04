@@ -12,7 +12,7 @@ Tu fais tourner **plusieurs sessions Claude Code en parallèle**, chacune dans s
 
 1. Il liste les processus lancés depuis **le lieu de travail courant** (le dépôt ou le worktree), repérés par leur répertoire courant, et non par leur nom ou par leur port. Il exclut les worktrees imbriqués, l'outillage Claude, les terminaux et les applications.
 2. Il coupe les serveurs en écoute **et leurs lanceurs** (un `tsx watch` ou un `nodemon` laissé en vie relancerait l'enfant), puis vérifie qu'il ne reste rien.
-3. Il prévient la session destinataire (`SendMessage`) : les ports libérés, ce qui reste allumé et partagé (une base, un proxy), et si la branche par défaut vient de bouger.
+3. Il prévient l'agent destinataire, Claude Code ou Codex, par [`messaging-ai-agents`](../messaging-ai-agents) : les ports libérés, ce qui reste allumé et partagé (une base, un proxy), et si la branche par défaut vient de bouger.
 
 ## Quand l'utiliser
 
@@ -26,7 +26,7 @@ npx skills add jordantaillefer/skills --skill handing-off-dev-servers
 
 Le script de listage est dans `scripts/list-own-servers.sh`. Tu peux aussi le lancer seul, depuis un dépôt : il est en lecture seule.
 
-**macOS uniquement** : le script vise le bash 3.2 livré avec macOS et s'appuie sur `lsof` et `ps`. Il faut aussi une version de Claude Code qui propose `ListAgents` et `SendMessage`.
+**macOS uniquement** : le script vise le bash 3.2 livré avec macOS et s'appuie sur `lsof` et `ps`. L'envoi passe par le skill [`messaging-ai-agents`](../messaging-ai-agents) : installe-le aussi.
 
 ## Ce qu'il ne fait pas
 
