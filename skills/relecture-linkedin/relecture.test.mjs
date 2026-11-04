@@ -61,3 +61,9 @@ test('les blocs {{…}} du brief sont exactement ceux que SKILL.md remplit', () 
   assert.deepEqual(blocs(lire(ici, 'brief-relecteur.md')), attendus)
   assert.deepEqual(blocs(lire(ici, 'SKILL.md')), attendus)
 })
+
+test('SKILL.md : la vérification du JSON contrôle aussi les réécritures', () => {
+  const etape = lire(ici, 'SKILL.md').match(/## 3\. La relecture\n([\s\S]*?)\n## 4\./)?.[1] ?? ''
+  assert.match(etape, /réécriture/, 'les réécritures ne sont pas vérifiées')
+  assert.match(etape, /tournure bannie/, 'les tournures bannies des réécritures ne sont pas vérifiées')
+})

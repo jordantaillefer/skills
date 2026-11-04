@@ -39,7 +39,7 @@ Un fichier passé en argument est une règle s'il dit comment écrire, un contex
 
 Remplis `brief-relecteur.md` (à côté de ce fichier) et donne tout ce qui suit son `---` à un **sous-agent neuf** : Agent, `subagent_type: general-purpose`, `model: opus`. Jamais toi-même : si tu as écrit ou corrigé le post dans cette conversation, tu seras indulgent.
 
-Vérifie le JSON rendu contre le contrat du brief : verdict cohérent avec les `bloquant` ; citations présentes mot pour mot dans le texte de `get_post` ; chiffres présents dans l'historique Gecko. Un écart : relance un sous-agent neuf en le signalant.
+Vérifie le JSON rendu contre le contrat du brief : verdict cohérent avec les `bloquant` ; citations présentes mot pour mot dans le texte de `get_post` ; chiffres présents dans l'historique Gecko ; chaque réécriture sans tournure bannie ni fait absent du post (une scène, une citation, une durée). Un écart : relance un sous-agent neuf en le signalant.
 
 ## 4. La présentation
 
