@@ -26,3 +26,6 @@ Format : `- « tournure » — pourquoi elle sonne creux`. Les règles propres �
 - « Le coupable n'était pas X… » — une mise en scène d'enquête plaquée sur un diagnostic ordinaire, qui retarde la cause.
 - « C'est souvent là que dort / se cache… » — une chute imagée qui sous-entend une vérité générale sans rien ajouter.
 - « Dans notre métier, on… » — une généralité de corporation, valable pour n'importe quel métier.
+- « L'idée s'est imposée d'elle-même » — une transition-modèle qui met en scène une évidence au lieu d'énoncer l'idée.
+- « Je me suis lancé dans une aventure » — une grandiloquence de reconversion, valable pour n'importe quel projet, qui ne dit pas ce qui est fait.
+- « Impossible de passer à côté de l'IA » — une généralité d'époque que tout le monde écrit, et qui ne situe pas l'auteur.
